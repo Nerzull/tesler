@@ -39,7 +39,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.RequestScope;
-import org.springframework.web.context.annotation.SessionScope;
 import org.springframework.web.context.request.RequestContextHolder;
 
 
@@ -52,7 +51,7 @@ public class CacheConfig extends CachingConfigurerSupport {
 
 	public static final String WORKFLOW_CACHE = "workflow";
 
-	public static final String SESSION_CACHE = "sessionCache";
+	public static final String USER_CACHE = "userCache";
 
 	public static final String REQUEST_CACHE = "requestCache";
 
@@ -64,10 +63,9 @@ public class CacheConfig extends CachingConfigurerSupport {
 
 	private final ApplicationContext applicationContext;
 
-	@Bean(name = SESSION_CACHE)
-	@SessionScope
-	public Cache sessionCache() {
-		return new ConcurrentMapCache(SESSION_CACHE);
+	@Bean(name = USER_CACHE)
+	public Cache userCache() {
+		return new ConcurrentMapCache(USER_CACHE);
 	}
 
 	@Bean(name = REQUEST_CACHE)
@@ -94,7 +92,7 @@ public class CacheConfig extends CachingConfigurerSupport {
 				SPECIFICATION_CACHE,
 				UI_CACHE
 		));
-		result.add(buildRequestAwareCacheManager(SESSION_CACHE, REQUEST_CACHE));
+		result.add(buildRequestAwareCacheManager(USER_CACHE, REQUEST_CACHE));
 		return result;
 	}
 

@@ -27,6 +27,7 @@ import io.tesler.core.controller.param.QueryParameters;
 import io.tesler.core.controller.param.SortParameters;
 import io.tesler.core.dao.BaseDAO;
 import io.tesler.core.dao.IPdqExtractor;
+import io.tesler.core.util.filter.provider.ClassifyDataProvider;
 import io.tesler.model.core.dao.impl.JpaDaoImpl;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,14 +35,18 @@ import java.util.Optional;
 import java.util.Set;
 import javax.persistence.EntityGraph;
 import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.persistence.metamodel.SingularAttribute;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Session;
+import org.hibernate.criterion.CriteriaSpecification;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.orm.jpa.vendor.Database;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,13 +57,21 @@ public class BaseDAOImpl extends JpaDaoImpl implements BaseDAO {
 
 	private final Optional<IPdqExtractor> pdqExtractor;
 
+	private final List<ClassifyDataProvider> providers;
+
+	private final Database primaryDatabase;
+
 	public BaseDAOImpl(
 			Set<EntityManager> entityManagers,
 			TransactionService txService,
-			Optional<IPdqExtractor> pdqExtractor
+			Optional<IPdqExtractor> pdqExtractor,
+			List<ClassifyDataProvider> providers,
+			@Qualifier("primaryDatabase") Database primaryDatabase
 	) {
 		super(entityManagers, txService);
 		this.pdqExtractor = pdqExtractor;
+		this.providers = providers;
+		this.primaryDatabase = primaryDatabase;
 	}
 
 	private Specification getPdqSearchSpec(final QueryParameters queryParameters) {
@@ -89,7 +102,7 @@ public class BaseDAOImpl extends JpaDaoImpl implements BaseDAO {
 			Class dtoClazz,
 			FilterParameters searchParams
 	) {
-		return MetadataUtils.getPredicateFromSearchParams(cb, root, dtoClazz, searchParams);
+		return MetadataUtils.getPredicateFromSearchParams(cb, root, dtoClazz, searchParams, providers);
 	}
 
 	@Override
@@ -167,7 +180,15 @@ public class BaseDAOImpl extends JpaDaoImpl implements BaseDAO {
 		int joinsInRoot = root.getJoins().size();
 		Predicate searchParamsPredicate = getPredicateFromSearchParams(cb, root, dtoClazz, filter);
 
-		if (root.getJoins().size() > joinsInRoot) {
+		// TODO: Narrow it down based on criteria
+		boolean distinctRequired = root.getJoins().size() > joinsInRoot;
+		/**
+		 * Non-Oracle DB can handle distinct for CLOBs so it can be applied
+		 * as sql clause.
+		 *
+		 * @see https://hibernate.atlassian.net/browse/HHH-3606
+		 */
+		if (!this.primaryDatabase.equals(Database.ORACLE) && distinctRequired) {
 			cq.distinct(true);
 		}
 
@@ -187,12 +208,32 @@ public class BaseDAOImpl extends JpaDaoImpl implements BaseDAO {
 		}
 		MetadataUtils.addSorting(dtoClazz, root, cq, cb, sort);
 
-		// правильно было бы вызывать
 		// query.setHint("javax.persistence.fetchgraph", fetchGraph)
-		// но возникают проблемы с производительностью
+		// more correct but causes performance troubles
 		applyGraph(root, fetchGraph);
 
-		TypedQuery<T> query = applyPaging(entityManager.createQuery(cq), parameters.getPage());
+		Query<T> query = entityManager.unwrap(Session.class).getSession().createQuery(cq);
+		applyPaging(query, parameters.getPage());
+
+		/**
+		 * Joins from filters (e.g. multivalue fields) can cause duplications in result set,
+		 * which are handled by applying `distinct` in memory.
+		 *
+		 * Deprecated `setResultTransformer` usage due to DB-level `distinct` clause is not applicable
+		 * because it does not support CLOBs and criteria query's `distinct()` can't properly handle
+		 * `QueryHints.HINT_PASS_DISTINCT_THROUGH` in nested (i.e. paginated) requests.
+		 *
+		 * Downside is that when distinct actually does filters out duplicates the number of records
+		 * in result set will be less than required by pagination parameters.
+		 *
+		 * @see https://hibernate.atlassian.net/browse/HHH-11726
+		 * @see https://discourse.hibernate.org/t/hibernate-resulttransformer-is-deprecated-what-to-use-instead/232
+		 *
+		 */
+		if (this.primaryDatabase.equals(Database.ORACLE) && distinctRequired) {
+			query.setResultTransformer(CriteriaSpecification.DISTINCT_ROOT_ENTITY);
+		}
+
 		return ResultPage.of(query.getResultList(), parameters.getPage());
 	}
 

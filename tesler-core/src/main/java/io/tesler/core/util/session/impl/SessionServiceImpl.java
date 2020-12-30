@@ -79,7 +79,7 @@ public class SessionServiceImpl implements SessionService {
 
 	private final BcHierarchyAware bcHierarchyAware;
 
-	private final SessionCache sessionCache;
+	private final UserCache userCache;
 
 	private final GroupService groupService;
 
@@ -219,7 +219,7 @@ public class SessionServiceImpl implements SessionService {
 
 	@Override
 	public Map<String, Boolean> getResponsibilities() {
-		return sessionCache.getResponsibilities(getSessionUser(), getSessionUserRole());
+		return userCache.getResponsibilities(getSessionUser(), getSessionUserRole());
 	}
 
 	@Override
@@ -269,7 +269,7 @@ public class SessionServiceImpl implements SessionService {
 
 	@Override
 	public List<String> getViews(final String screenName) {
-		return sessionCache.getViews(screenName, getSessionUser(), getSessionUserRole());
+		return userCache.getViews(screenName, getSessionUser(), getSessionUserRole());
 	}
 
 	@Cacheable(cacheNames = {CacheConfig.REQUEST_CACHE}, key = "#root.methodName")
@@ -280,12 +280,12 @@ public class SessionServiceImpl implements SessionService {
 
 	@Component
 	@RequiredArgsConstructor
-	public static class SessionCache {
+	public static class UserCache {
 
 		private final UIService uiService;
 
 		@Cacheable(
-				cacheNames = {CacheConfig.SESSION_CACHE},
+				cacheNames = {CacheConfig.USER_CACHE},
 				key = "{#root.methodName, #user.id, #userRole}"
 		)
 		public Map<String, Boolean> getResponsibilities(final User user, final LOV userRole) {
@@ -296,7 +296,7 @@ public class SessionServiceImpl implements SessionService {
 		}
 
 		@Cacheable(
-				cacheNames = {CacheConfig.SESSION_CACHE},
+				cacheNames = {CacheConfig.USER_CACHE},
 				key = "{#root.methodName, #screenName, #user.id, #userRole}"
 		)
 		public List<String> getViews(final String screenName, final User user, final LOV userRole) {
