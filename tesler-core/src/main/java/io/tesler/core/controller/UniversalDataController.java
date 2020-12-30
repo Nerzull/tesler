@@ -20,6 +20,8 @@
 
 package io.tesler.core.controller;
 
+import static io.tesler.api.util.i18n.InfoMessageSource.infoMessage;
+
 import io.tesler.api.data.ResultPage;
 import io.tesler.api.data.dto.DataResponseDTO;
 import io.tesler.core.controller.param.QueryParameters;
@@ -77,11 +79,7 @@ public class UniversalDataController {
 			CrudmaAction crudmaAction = crudmaActionHolder.of(CrudmaActionType.FIND)
 					.setBc(bc).getAction();
 			crudmaAction.setDescription(
-					String.format(
-							"Получение списка %s, parentId: %s",
-							bc.getDescription().getName(),
-							bc.getParentId()
-					)
+					infoMessage("info.get_list_request", bc.getDescription().getName(), bc.getParentId())
 			);
 			ResultPage<? extends DataResponseDTO> data = crudmaGateway.getAll(crudmaAction);
 			return resp.build(data.getResult(), data.isHasNext());
@@ -97,9 +95,10 @@ public class UniversalDataController {
 		} else {
 			requestBody = (Map) requestBody.get("data");
 		}
+		final String action = queryParameters.getParameter("_action");
 		BusinessComponent bc = bcFactory.getBusinessComponent(request, queryParameters);
 		CrudmaAction crudmaAction = crudmaActionHolder.of(CrudmaActionType.UPDATE)
-				.setBc(bc).setDescription(
+				.setBc(bc).setOriginalActionType(action).setDescription(
 						String.format(
 								"Изменение записи %s, id: %s, parentId: %s",
 								bc.getDescription().getName(),
@@ -115,8 +114,9 @@ public class UniversalDataController {
 			QueryParameters queryParameters
 	) {
 		BusinessComponent bc = bcFactory.getBusinessComponent(request, queryParameters);
+		final String action = queryParameters.getParameter("_action");
 		CrudmaAction crudmaAction = crudmaActionHolder.of(CrudmaActionType.DELETE)
-				.setBc(bc).setDescription(
+				.setBc(bc).setOriginalActionType(action).setDescription(
 						String.format(
 								"Удаление записи %s, id: %s, parentId: %s",
 								bc.getDescription().getName(),

@@ -26,11 +26,12 @@ import io.tesler.api.data.dictionary.IDictionaryType;
 import io.tesler.api.data.dictionary.LOV;
 import io.tesler.api.data.dictionary.SimpleDictionary;
 import io.tesler.api.data.dto.DataResponseDTO;
+import io.tesler.api.data.dto.rowmeta.FieldDTO;
 import io.tesler.api.data.dto.rowmeta.FieldsDTO;
 import io.tesler.api.data.dto.rowmeta.IconCode;
 import io.tesler.constgen.DtoField;
-import io.tesler.core.dto.DrillDownType;
 import io.tesler.core.dto.FieldDrillDown;
+import io.tesler.core.service.action.DrillDownTypeSpecifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,11 +46,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RowDependentFieldsMeta<T extends DataResponseDTO> extends FieldsDTO {
 
+	public FieldDTO get(final DtoField<? super T, ?> field) {
+		return fields.get(field.getName());
+	}
+
 	/**
-	 * Добавляет в существующий список доступных для выбора значений
+	 * Adds a value to an existing list of selectable values
 	 *
-	 * @param field поле виджета с типом dictionary
-	 * @param dictDTO ДТО со значением справочника
+	 * @param field widget field with type dictionary
+	 * @param dictDTO DTO with dictionary value
 	 */
 	public final void addConcreteValue(DtoField<? super T, ?> field, SimpleDictionary dictDTO) {
 		Optional.ofNullable(field).map(dtoField -> fields.get(dtoField.getName()))
@@ -57,11 +62,11 @@ public class RowDependentFieldsMeta<T extends DataResponseDTO> extends FieldsDTO
 	}
 
 	/**
-	 * Заполняет список доступных для выбора значений в выпадающем списке конкретными значениями справочника
+	 * Fills the list of selectable values in the dropdown list with concrete dictionary values
 	 *
-	 * @param field поле виджета с типом dictionary
-	 * @param type тип справочника
-	 * @param lovs список кодов справочника(с типом LOV)
+	 * @param field widget field with type dictionary
+	 * @param type dictionary type
+	 * @param lovs list of dictionary codes (with type LOV)
 	 */
 	public final void setDictionaryTypeWithConcreteValuesFromList(DtoField<? super T, ?> field, IDictionaryType type,
 			List<LOV> lovs) {
@@ -203,7 +208,7 @@ public class RowDependentFieldsMeta<T extends DataResponseDTO> extends FieldsDTO
 				});
 	}
 
-	public final void setDrilldown(DtoField<? super T, ?> field, DrillDownType drillDownType, String drillDown) {
+	public final void setDrilldown(DtoField<? super T, ?> field, DrillDownTypeSpecifier drillDownType, String drillDown) {
 		Optional.ofNullable(field).map(dtoField -> fields.get(dtoField.getName()))
 				.ifPresent(fieldDTO -> {
 					fieldDTO.setDrillDown(drillDown);
